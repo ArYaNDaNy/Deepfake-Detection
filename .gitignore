@@ -1,2 +1,41 @@
-.venv
-models/vit_finetuned/
+# =========================
+# OS & IDE
+# =========================
+.DS_Store
+.idea/
+.vscode/
+
+# =========================
+# FRONTEND (React)
+# =========================
+frontend/node_modules/
+frontend/dist/
+frontend/bun.lockb
+.npm/
+
+# =========================
+# BACKEND (FastAPI/Python)
+# =========================
+# Python Cache
+__pycache__/
+*.py[cod]
+
+# Environments
+backend_clean/venv/
+backend_clean/.venv/
+
+# Temp processing folders
+backend_clean/temp_uploads/
+
+# =========================
+# ML MODELS (Targeted Cleanup)
+# =========================
+# Ignore these specific model weight directories
+backend_clean/models/vit_faceswap/
+backend_clean/models/vit_finetuned/
+backend_clean/scripts/
+backend_clean/test/
+# EXPLICITLY KEEP your audio pickle file
+# All other .pkl files in the repo are ignored by default
+*.pkl
+!backend_clean/models/audio_logistic_model.pkl
