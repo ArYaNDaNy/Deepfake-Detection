@@ -1,294 +1,468 @@
 # VisionGuard 🛡️
 
-A multimodal deepfake detection system that analyzes **images**, **videos**, and **audio** to determine whether media is real or synthetically generated. Built with a dual Vision Transformer ensemble for image/video analysis and a calibrated SVM classifier for audio detection.
+A multimodal deepfake detection system that analyzes **images**,
+**videos**, and **audio** to determine whether media is real or
+synthetically generated. Built with a dual Vision Transformer ensemble
+for image/video analysis and a calibrated SVM classifier for audio
+detection.
 
----
+------------------------------------------------------------------------
 
 ## Demo
 
-| Modality | Test Dataset | Accuracy |
-|---|---|---|
-| Image | 140k Real & Fake Faces (StyleGAN) | 98.8% |
-| Audio | FoR-norm (Fake-or-Real Dataset) | 76.2% |
-| Video | DFDC Face Crops | 68.0% |
+  Modality   Test Dataset                           Accuracy
+  ---------- ----------------------------------- -----------
+  Image      140k Real & Fake Faces (StyleGAN)     **98.8%**
+  Audio      FoR-norm (Fake-or-Real Dataset)       **76.2%**
+  Video      DFDC Face Crops                       **68.0%**
 
----
+------------------------------------------------------------------------
 
-## Architecture
+# Architecture
 
-```
+``` text
 Deepfake-Detection/
 ├── frontend/          # React + Vite + Tailwind UI
 └── backend_clean/     # FastAPI inference server
     ├── ml_models/
-    │   ├── vit_model.py        # Dual ViT ensemble (image + video frames)
-    │   ├── audio_expert.py     # SVM classifier on 77 acoustic features
-    │   ├── heuristics.py       # OpenCV-based artifact detection
-    │   └── fusion_model.py     # Score fusion logic
+    │   ├── vit_model.py
+    │   ├── audio_expert.py
+    │   ├── heuristics.py
+    │   └── fusion_model.py
     ├── utils/
-    │   └── video_utils.py      # MediaPipe face extraction
-    ├── models/                 # Downloaded model weights (not in repo)
-    │   ├── vit_finetuned/      # dima806/deepfake_vs_real_image_detection
-    │   ├── vit_faceswap/       # Wvolf/ViT_Deepfake_Detection
+    │   └── video_utils.py
+    ├── models/
+    │   ├── vit_finetuned/
+    │   ├── vit_faceswap/
     │   └── audio_logistic_model.pkl
-    ├── scripts/                # This file is not pushed due to large dataset being present
-    │   └── train_audio.py      # Audio SVM training script
-    ├── test/                   # This file is not pushed due to large dataset being present
-    │   ├── test_images.py
-    │   ├── test_videos.py
-    │   └── test_audio.py
-    └── api.py                  # FastAPI routes
+    ├── scripts/
+    ├── test/
+    └── main.py
 ```
 
-### Detection Pipeline
+## Detection Pipeline
 
-**Image**
-```
-Input Image → MediaPipe Face Crop → Dual ViT (dima806 + Wvolf) 
-→ Temperature Calibration (T=1.4) → OpenCV Heuristics 
-(texture, boundary, noise, frequency) → Conflict-Aware Fusion → Score
-```
+### Image
 
-**Video**
-```
-Input Video → MediaPipe Face Extraction (40 frames) → Dual ViT Batch 
-→ Median Aggregation → Pixel Glitch Score → Heuristics → Fusion → Score
-FFmpeg Audio Track → Audio Pipeline → 70/30 Weighted Final Score
-```
-
-**Audio**
-```
-Input Audio → Librosa Feature Extraction (77 features: MFCC + Delta + 
-Delta² + Spectral Contrast + Pitch + Shimmer + Jitter + Mel Stats) 
-→ StandardScaler → SVM (RBF, C=50) → Fake Probability
+``` text
+Input Image
+    ↓
+MediaPipe Face Detection
+    ↓
+Dual ViT (dima806 + Wvolf)
+    ↓
+Temperature Calibration
+    ↓
+OpenCV Heuristics
+    ↓
+Conflict-Aware Fusion
+    ↓
+Final Fake Probability
 ```
 
-### Models Used
+### Video
 
-| Model | Source | Used For |
-|---|---|---|
-| `dima806/deepfake_vs_real_image_detection` | HuggingFace | Primary ViT — AI-generated faces |
-| `Wvolf/ViT_Deepfake_Detection` | HuggingFace | Secondary ViT — face swaps |
-| SVM RBF (C=50) | Trained locally | Audio deepfake detection |
-| MediaPipe Face Detection | Google | Face crop extraction |
+``` text
+Input Video
+    ↓
+Extract Faces (MediaPipe)
+    ↓
+Dual ViT Frame Analysis
+    ↓
+Median Aggregation
+    ↓
+Pixel Glitch + Heuristics
+    ↓
+FFmpeg Audio Extraction
+    ↓
+Audio Analysis
+    ↓
+Weighted Fusion
+```
 
----
+### Audio
 
-## Getting Started
+``` text
+Input Audio
+    ↓
+Librosa Feature Extraction (77 Features)
+    ↓
+StandardScaler
+    ↓
+SVM (RBF)
+    ↓
+Fake Probability
+```
 
-### Prerequisites
+------------------------------------------------------------------------
 
-- Python 3.10
-- Node.js or [Bun](https://bun.sh)
-- ffmpeg (`brew install ffmpeg` on Mac)
+# Models Used
 
----
+  Model                                      Purpose
+  ------------------------------------------ ------------------------
+  dima806/deepfake_vs_real_image_detection   Primary image detector
+  Wvolf/ViT_Deepfake_Detection               Face-swap detector
+  SVM (RBF)                                  Audio detector
+  MediaPipe Face Detection                   Face extraction
 
-### Backend Setup
+------------------------------------------------------------------------
 
-```bash
+# Getting Started
+
+## Prerequisites
+
+-   Python **3.10.x (Recommended)**
+-   Python 3.12 also works (may show harmless deprecation warnings)
+-   Node.js (or Bun)
+-   FFmpeg installed and available in PATH
+-   Git
+
+------------------------------------------------------------------------
+
+# Backend Setup
+
+``` bash
 cd backend_clean
 
-# Create and activate virtual environment
-python3 -m venv venv
-source venv/bin/activate        # Mac/Linux
-# venv\Scripts\activate         # Windows
+python -m venv venv
 
-# Install dependencies
+# Windows
+venv\Scripts\activate
+
+# macOS/Linux
+source venv/bin/activate
+
 pip install -r requirements.txt
 ```
 
-#### Download Models
+Verify installation:
 
-```bash
-# Download primary ViT model
-python download_vit.py            # else python3 download_vit.py
-
-# Download secondary ViT model (face swap specialist)
-python download_vit_faceswap.py   # else python3 download_vit_faceswap.py
+``` bash
+python --version
+python -c "import torch; print(torch.__version__)"
+python -c "import transformers; print(transformers.__version__)"
+python -c "import mediapipe as mp; print(mp.__version__)"
 ```
 
-#### Train Audio Model(This part is not pushed as dataset included 10k files)
+## Download Models
 
-The audio SVM must be trained before running the server.
-
-1. Download the [FoR-norm dataset](https://bil.eecs.yorku.ca/datasets/) and place it at:
-```
-backend_clean/datasets/audio_real/    ← for-norm/training/real/
-backend_clean/datasets/audio_fake/    ← for-norm/training/fake/
+``` bash
+python download_vit.py
+python download_vit_faceswap.py
 ```
 
-2. Train:
-```bash
+## Train Audio Model
+
+Download the FoR-norm dataset and place it as:
+
+``` text
+backend_clean/datasets/audio_real/
+backend_clean/datasets/audio_fake/
+```
+
+Train:
+
+``` bash
 cd scripts
-python3 train_audio.py
+python train_audio.py
 ```
 
-#### Start the Server
+## Start Backend
 
-```bash
-cd backend_clean
-uvicorn main:app --reload --port 8000
+``` bash
+python -m uvicorn main:app --reload --port 8000
 ```
 
-API will be available at `http://localhost:8000`
+Backend:
 
----
+    http://localhost:8000
 
-### Frontend Setup
+------------------------------------------------------------------------
 
-```bash
+# Frontend Setup
+
+``` bash
 cd frontend
 
-# Install dependencies
-bun install       # or: npm install
+bun install
+# or
+npm install
 
-# Start dev server
-bun run dev       # or: npm run dev
+bun run dev
+# or
+npm run dev
 ```
 
-Frontend will be available at `http://localhost:5173`
+Frontend:
 
----
+    http://localhost:5173
 
-## API Reference
+------------------------------------------------------------------------
 
-### `POST /analyze-image`
-Detects deepfakes in a still image.
+# API
 
-**Request:** `multipart/form-data` — `file` (.jpg, .png, .jpeg)
+## POST /analyze-image
 
-**Response:**
-```json
-{
-  "status": "success",
-  "modality": "image",
-  "fake_probability": 0.74,
-  "breakdown": {
-    "vit_confidence": 0.81,
-    "face_detected": true,
-    "heuristics": {
-      "texture": 0.92,
-      "boundary": 0.43,
-      "noise": 0.12,
-      "frequency": 0.21
-    }
-  }
-}
-```
+Accepts:
 
----
+-   jpg
+-   jpeg
+-   png
 
-### `POST /analyze-video`
-Detects deepfakes in a video file.
+Returns fake probability and heuristic breakdown.
 
-**Request:** `multipart/form-data` — `file` (.mp4, .mov, .avi)
+## POST /analyze-video
 
-**Response:**
-```json
-{
-  "status": "success",
-  "modality": "video",
-  "fake_probability": 0.68,
-  "breakdown": {
-    "video_score": 0.71,
-    "audio_score": 0.58,
-    "vit_median": 0.63,
-    "pixel_glitch": 0.82,
-    "heuristics_average": {}
-  }
-}
-```
+Accepts:
 
----
+-   mp4
+-   mov
+-   avi
 
-### `POST /analyze-audio`
-Detects synthetic/cloned audio.
+Returns image + audio fusion score.
 
-**Request:** `multipart/form-data` — `file` (.wav, .mp3, .flac, .ogg, .m4a)
+## POST /analyze-audio
 
-**Response:**
-```json
-{
-  "status": "success",
-  "modality": "audio",
-  "fake_probability": 0.92,
-  "breakdown": {
-    "audio_score": 0.92,
-    "model": "svm_rbf_77features"
-  }
-}
-```
+Accepts:
 
----
+-   wav
+-   mp3
+-   flac
+-   ogg
+-   m4a
 
-### Score Interpretation
+Returns SVM fake probability.
 
-| Score | Label | Meaning |
-|---|---|---|
-| 0.00 – 0.35 | ✅ Real | Likely authentic |
-| 0.35 – 0.60 | ⚠️ Suspicious | Inconclusive — manual review recommended |
-| 0.60 – 1.00 | 🚨 Fake | Likely synthetic or manipulated |
+------------------------------------------------------------------------
 
----
+# Score Interpretation
 
-## Testing(This is also not included in repo as it has a lot of files 1GB+)
+  Score        Meaning
+  ------------ ------------
+  0.00--0.35   Real
+  0.35--0.60   Suspicious
+  0.60--1.00   Fake
 
-Place test samples in the following structure:
-```
+------------------------------------------------------------------------
+
+# Testing
+
+Place samples:
+
+``` text
 samples/
-├── image/
-│   ├── real/
-│   └── fake/
-├── video/
-│   ├── real/
-│   └── fake/
-└── audio/
-    ├── real/
-    └── fake/
+    image/
+    video/
+    audio/
 ```
 
-Run tests (server must be running):
-```bash
-cd test
-python3 test_images.py --samples_dir ../samples/image
-python3 test_videos.py --samples_dir ../samples/video
-python3 test_audio.py  --samples_dir ../samples/audio
+Run:
+
+``` bash
+python test_images.py
+python test_videos.py
+python test_audio.py
 ```
 
----
+------------------------------------------------------------------------
 
-## Known Limitations
+# Common Setup Issues & Fixes
 
-**Image**
-- Performs well on GAN and diffusion-generated faces
-- Reduced accuracy on face swaps extracted from compressed video
-- Top-tier generative models (Gemini, Midjourney v6) can bypass detection
+## 1. torch.\_C Error
 
-**Audio**
-- Trained on FoR-norm — may underperform on newer voice cloning systems not covered by the dataset
-- Sensitive to audio quality and recording conditions
+    ModuleNotFoundError: No module named 'torch._C'
 
-**Video**
-- Treats frames independently — no temporal sequence model
-- Struggles on motion-stabilized datasets (e.g. DFDC) where frame-to-frame differences are minimal
-- Processing time: ~15–20 seconds per video on Apple M3
+Fix:
 
----
+``` bash
+pip uninstall torch torchvision torchaudio -y
+pip install torch torchvision torchaudio
+```
 
-## Tech Stack
+------------------------------------------------------------------------
 
-| Layer | Technology |
-|---|---|
-| Frontend | React, Vite, Tailwind CSS |
-| Backend | FastAPI, Uvicorn |
-| Vision Models | PyTorch, HuggingFace Transformers |
-| Audio | Librosa, Scikit-Learn |
-| Face Detection | MediaPipe |
-| Video Processing | OpenCV, FFmpeg |
+## 2. MediaPipe `solutions` Missing
 
----
+    AttributeError: module 'mediapipe' has no attribute 'solutions'
 
-## Team
+Fix:
 
-Built as a project for nexevolve hackathon somaiya college vidyavihar where we held 5th place
+``` bash
+pip uninstall mediapipe -y
+pip install mediapipe==0.10.21
+```
+
+------------------------------------------------------------------------
+
+## 3. Missing ViT Models
+
+    FileNotFoundError
+
+Run:
+
+``` bash
+python download_vit.py
+python download_vit_faceswap.py
+```
+
+------------------------------------------------------------------------
+
+## 4. Missing Audio Model
+
+    audio_logistic_model.pkl
+
+Train locally:
+
+``` bash
+cd scripts
+python train_audio.py
+```
+
+------------------------------------------------------------------------
+
+## 5. pkg_resources Missing
+
+    ModuleNotFoundError: No module named 'pkg_resources'
+
+Fix:
+
+``` bash
+pip install "setuptools<81"
+```
+
+Verify:
+
+``` bash
+python -c "import pkg_resources"
+```
+
+------------------------------------------------------------------------
+
+## 6. pkg_resources Deprecated Warning
+
+Generated by **librosa** internally.
+
+Safe to ignore.
+
+------------------------------------------------------------------------
+
+## 7. MediaPipe / protobuf / SWIG Deprecation Warnings
+
+Examples:
+
+-   SwigPyObject
+-   MessageMapContainer
+-   ScalarMapContainer
+
+Safe to ignore on Python 3.12.
+
+------------------------------------------------------------------------
+
+## 8. Audio Deprecation Warnings
+
+Warnings mentioning:
+
+-   aifc
+-   audioop
+-   sunau
+
+come from **audioread**.
+
+Safe to ignore.
+
+------------------------------------------------------------------------
+
+## 9. FFmpeg Not Found
+
+Install FFmpeg and add it to PATH.
+
+Verify:
+
+``` bash
+ffmpeg -version
+```
+
+------------------------------------------------------------------------
+
+## 10. Scikit-Learn Version Warning
+
+    InconsistentVersionWarning
+
+Install matching version:
+
+``` bash
+pip install scikit-learn==1.4.1.post1
+```
+
+or retrain the audio model.
+
+------------------------------------------------------------------------
+
+## 11. Verify Virtual Environment
+
+``` bash
+where python
+python -c "import sys; print(sys.executable)"
+```
+
+Always ensure Python points to:
+
+    backend_clean/venv/
+
+------------------------------------------------------------------------
+
+# Known Limitations
+
+## Image
+
+-   Performs best on GAN and diffusion generated faces.
+-   Reduced accuracy on compressed face-swaps.
+-   Latest commercial generators may bypass detection.
+
+## Audio
+
+-   Trained on FoR-norm only.
+-   Sensitive to recording quality.
+
+## Video
+
+-   No temporal transformer.
+-   Frame-based inference.
+-   Processing takes \~15--20 seconds depending on hardware.
+
+------------------------------------------------------------------------
+
+# Tech Stack
+
+  Layer            Technology
+  ---------------- -----------------------
+  Frontend         React, Vite, Tailwind
+  Backend          FastAPI
+  Vision           PyTorch, Hugging Face
+  Audio            Librosa, Scikit-Learn
+  Face Detection   MediaPipe
+  Video            OpenCV, FFmpeg
+
+------------------------------------------------------------------------
+
+# Development Notes
+
+-   Large datasets are intentionally excluded from Git.
+-   Model weights are downloaded separately.
+-   Audio model must be trained locally.
+-   Always use a virtual environment.
+-   Start the server using:
+
+``` bash
+python -m uvicorn main:app --reload --port 8000
+```
+
+Avoid running with `python -X dev` unless debugging, as it enables
+additional deprecation warnings.
+
+------------------------------------------------------------------------
+
+# Team
+
+Built during the **NexEvolve Hackathon** at **K. J. Somaiya College of
+Engineering**, where the project secured **5th place**.
